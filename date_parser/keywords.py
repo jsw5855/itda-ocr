@@ -6,11 +6,11 @@ from typing import Iterable, List, Sequence, Tuple
 from .types import Bbox
 
 # Marks a date as the expiration date being sought.
-ANCHOR_KEYWORDS = ["소비기한", "유통기한", "사용기한", "까지", "EXP", "BBD", "BB", "BEST BEFORE", "BEST BY"]
+ANCHOR_KEYWORDS = ["소비기한", "유통기한", "사용기한", "까지", "EXP", "EXD", "BBD", "BB", "BEST BEFORE", "BEST BY"]
 
 # Marks a date as a different kind of date (manufacture/packaging), not the
 # expiration date, so it should lose to an anchor-flagged candidate nearby.
-EXCLUDE_KEYWORDS = ["제조일자", "제조년월일", "제조일", "포장일자", "포장일", "제조", "PRO", "PRD", "MFD", "PACK", "MFG"]
+EXCLUDE_KEYWORDS = ["제조일자", "제조년월일", "제조일", "포장일자", "포장일", "제조", "PRO", "PROD", "PRD", "MFD", "PACK", "MFG"]
 
 
 def has_keyword(text: str, keywords: Iterable[str]) -> bool:

@@ -86,6 +86,32 @@ def test_finds_date_with_multi_character_separator():
     assert _fields(tokens[0]) == (("2021", "num"), ("03", "num"), ("20", "num"))
 
 
+def test_finds_day_glued_to_month_name_no_separator():
+    # Real case from labels_300.csv (id=2728): "04NOV 2021" (day + AUG glued,
+    # space only before the year)
+    tokens = extract_date_tokens("04NOV 2021")
+    assert len(tokens) == 1
+    token = tokens[0]
+    assert token.fixed_roles is None
+    assert _fields(token) == (("04", "num"), ("NOV", "month_name"), ("2021", "num"))
+
+
+def test_finds_year_month_day_glued_with_no_internal_separator():
+    # Real case from labels_300.csv (id=2981): "2021.1217" (month+day glued
+    # together right after the year separator)
+    tokens = extract_date_tokens("2021.1217")
+    assert len(tokens) == 1
+    assert _fields(tokens[0]) == (("2021", "num"), ("12", "num"), ("17", "num"))
+
+
+def test_finds_year_month_day_with_stray_punctuation_between_month_and_day():
+    # Real case from labels_300.csv (id=2134): "2022.11:02" (OCR misread the
+    # month/day separator as a colon instead of a period)
+    tokens = extract_date_tokens("2022.11:02")
+    assert len(tokens) == 1
+    assert _fields(tokens[0]) == (("2022", "num"), ("11", "num"), ("02", "num"))
+
+
 def test_finds_multiple_non_overlapping_dates():
     tokens = extract_date_tokens("제조일자 2026.01.01 소비기한 2026.07.01")
     assert len(tokens) == 2

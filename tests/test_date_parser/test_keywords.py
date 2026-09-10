@@ -25,6 +25,13 @@ def test_korean_keyword_still_matches_as_substring():
     assert has_keyword("제조일자 2026.01.01", EXCLUDE_KEYWORDS)
 
 
+def test_prod_and_exd_match_as_abbreviated_keywords():
+    # Real case from labels_300.csv (id=879): "PROD. DATE" / "EXP. DATE"
+    assert has_keyword("PROD. DATE:15/07/2020", EXCLUDE_KEYWORDS)
+    # Real case from labels_300.csv (id=3238): "EXD" as a short form of "EXP"
+    assert has_keyword("EXD: 16.10.2021", ANCHOR_KEYWORDS)
+
+
 def test_no_match_on_unrelated_text():
     assert not has_keyword("영양성분표 100g당", ANCHOR_KEYWORDS)
     assert not has_keyword("영양성분표 100g당", EXCLUDE_KEYWORDS)

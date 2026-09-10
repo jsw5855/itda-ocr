@@ -70,6 +70,18 @@ _PATTERN_DEFS = [
         None,
     ),
     (
+        # "04NOV 2021" style: day glued directly to the month name with no
+        # separator at all (OCR dropped the space), but a real separator
+        # before the year. Safe to allow zero separator here for the same
+        # reason as the "AUG292020" pattern above - the month name is a
+        # strong, small anchor that can't accidentally swallow an unrelated
+        # digit run.
+        re.compile(rf"(?<!\d)(\d{{1,2}}){_OPTIONAL_SEP}({_MONTH_RE}){_SEP}(\d{{2,4}})(?!\d)", re.IGNORECASE),
+        ("num", "month_name", "num"),
+        ("year", "month", "day"),
+        None,
+    ),
+    (
         re.compile(rf"(?<!\d)(\d{{2,4}}){_SEP}({_MONTH_RE}){_SEP}(\d{{1,2}})(?!\d)", re.IGNORECASE),
         ("num", "month_name", "num"),
         ("year", "month", "day"),
@@ -112,6 +124,19 @@ _PATTERN_DEFS = [
     ),
     (
         re.compile(rf"(?<!\d)({DIGIT}{{4}})({DIGIT}{{2}})({DIGIT}{{2}})(?!\d)"),
+        ("num", "num", "num"),
+        ("year", "month", "day"),
+        None,
+    ),
+    (
+        # "2021.0326" (month+day glued together with no internal separator)
+        # and "2022.11:02" (a single stray punctuation mark, e.g. OCR
+        # misreading "." as ":", between month and day). Anchored by an
+        # unambiguous 4-digit year up front, so allowing a loose/optional
+        # separator for the rest is low-risk - this can't accidentally
+        # swallow an unrelated HH:MM:SS timestamp since those never start
+        # with a 4-digit number.
+        re.compile(rf"(?<!\d)({DIGIT}{{4}}){_SEP}({DIGIT}{{2}})[:.()]?({DIGIT}{{2}})(?!\d)"),
         ("num", "num", "num"),
         ("year", "month", "day"),
         None,
