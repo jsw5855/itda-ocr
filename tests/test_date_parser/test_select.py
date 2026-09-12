@@ -1,0 +1,80 @@
+from date_parser.select import find_all_candidates, select_final_date
+from date_parser.types import DateResult, TextBox
+
+
+def _box(text, x, y):
+    return TextBox(text=text, confidence=0.9, bbox=[[x, y], [x + 10, y], [x + 10, y + 5], [x, y + 5]])
+
+
+def test_find_all_candidates_across_multiple_boxes():
+    boxes = [
+        _box("제조일자", 0, 0),
+        _box("2026.01.01", 0, 5),
+        _box("소비기한", 0, 100),
+        _box("2026.07.01", 0, 105),
+    ]
+    positioned = find_all_candidates(boxes)
+    assert len(positioned) == 2
+
+
+def test_select_prefers_date_near_anchor_keyword_over_exclude():
+    boxes = [
+        _box("제조일자", 0, 0),
+        _box("2026.01.01", 0, 5),
+        _box("소비기한", 0, 100),
+        _box("2026.07.01", 0, 105),
+    ]
+    best = select_final_date(boxes)
+    assert best is not None
+    assert best.result.month == 7
+
+
+def test_select_with_no_keywords_falls_back_to_only_candidate():
+    boxes = [_box("2026.03.10", 0, 0)]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2026, 3, 10)
+
+
+def test_select_with_no_dates_returns_none():
+    boxes = [_box("영양성분표", 0, 0)]
+    assert select_final_date(boxes) is None
+
+
+def test_select_uses_manufacture_date_to_resolve_ymd_dmy_ambiguity():
+    # "20.06.26" is genuinely ambiguous: YMD reading 2020-06-26 (default,
+    # higher score) vs DMY reading 2026-06-20. A manufacture date of
+    # 2024-01-01 rules out 2020-06-26 (expiration can't be before
+    # manufacture), so the pick should flip to the DMY reading.
+    boxes = [
+        _box("제조일자 2024년 01월 01일", 0, 0),
+        _box("소비기한 20.06.26", 0, 100),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2026, 6, 20)
+
+
+def test_select_prefers_latest_date_when_no_anchor_keyword_anywhere():
+    # Real case from label2.xlsx (id=1104): two dates, neither box has any
+    # anchor/exclude keyword text at all, so there's no positional signal.
+    # Expiration should virtually always be the later of the two.
+    boxes = [
+        _box("2020.11.27", 0, 0),
+        _box("2021.08.26", 0, 100),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2021, 8, 26)
+
+
+def test_select_no_fallback_reorder_when_only_one_candidate():
+    boxes = [_box("2021.08.26", 0, 0)]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2021, 8, 26)
+
+
+def test_select_ignores_exclude_keyword_when_no_anchor_present():
+    boxes = [
+        _box("제조일자", 0, 0),
+        _box("2026.01.01", 0, 5),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2026, 1, 1)
