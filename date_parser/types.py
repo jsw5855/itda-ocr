@@ -40,4 +40,6 @@ class DateResult:
         return y, m, d
 
     def final_date_string(self) -> str:
+        if self.is_empty():
+            return "NONE"
         return "-".join(self.as_strings())

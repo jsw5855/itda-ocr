@@ -30,9 +30,13 @@ def test_partial_none_when_day_is_calendar_invalid():
 
 
 def test_all_none_when_no_date_found():
+    # Contest output format: individual year/month/day fields stay "NONE" each,
+    # but final_date collapses to the single string "NONE" only when every
+    # field is unknown - a partial result (e.g. "2026-01-NONE") must NOT
+    # collapse, since that still carries real year/month information.
     ocr_results = [{"text": "영양성분표", "confidence": 0.9, "bbox": [[0, 0], [10, 0], [10, 5], [0, 5]]}]
     result = parse_expiration_date(ocr_results)
-    assert result == {"year": "NONE", "month": "NONE", "day": "NONE", "final_date": "NONE-NONE-NONE"}
+    assert result == {"year": "NONE", "month": "NONE", "day": "NONE", "final_date": "NONE"}
 
 
 def test_manufacture_date_resolves_ymd_dmy_ambiguity_end_to_end():
