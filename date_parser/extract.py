@@ -117,6 +117,35 @@ _PATTERN_DEFS = [
         ("month", "year"),
     ),
     (
+        # A comma where a period/dash was probably intended (OCR visually
+        # confuses the two), e.g. "26,07.14" or "27,02,18" or "22.01,06".
+        # Requires an actual comma in at least one of the two separators
+        # (unlike a plain all-period triple, which the generic pattern below
+        # already handles correctly) - a pure "20XX.MM.DD" match must never
+        # be intercepted here, since a longer text can have a coincidental
+        # extra 2-digit group later on (e.g. an hour, "2025.10.11.22시") that
+        # this pattern could otherwise latch onto instead of the real date.
+        # Restricted to 1-2 digit groups only (never the {1,4} the generic
+        # pattern below allows) so this can't misfire on a thousands-
+        # separated number like "1,350" or "20,000" - those always have a
+        # 3-digit group after the comma, which this cannot match. Uses plain
+        # [0-9] rather than the O/o/U/u-confusable DIGIT class: DIGIT here
+        # would let this pattern start matching midway through an unrelated
+        # longer confusable-digit run (e.g. wrongly split "2O26.O1.15" after
+        # its first character), which the generic pattern below - tried
+        # after this one - already handles correctly as one full token.
+        re.compile(r"(?<![0-9])([0-9]{1,2}),([0-9]{1,2})[.,]([0-9]{1,2})(?![0-9])"),
+        ("num", "num", "num"),
+        ("year", "month", "day"),
+        None,
+    ),
+    (
+        re.compile(r"(?<![0-9])([0-9]{1,2})\.([0-9]{1,2}),([0-9]{1,2})(?![0-9])"),
+        ("num", "num", "num"),
+        ("year", "month", "day"),
+        None,
+    ),
+    (
         re.compile(rf"(?<!\d)({DIGIT}{{1,4}}){_SEP}({DIGIT}{{1,4}}){_SEP}({DIGIT}{{1,4}})(?!\d)"),
         ("num", "num", "num"),
         ("year", "month", "day"),
@@ -129,14 +158,14 @@ _PATTERN_DEFS = [
         None,
     ),
     (
-        # "2021.0326" (month+day glued together with no internal separator)
-        # and "2022.11:02" (a single stray punctuation mark, e.g. OCR
-        # misreading "." as ":", between month and day). Anchored by an
-        # unambiguous 4-digit year up front, so allowing a loose/optional
-        # separator for the rest is low-risk - this can't accidentally
-        # swallow an unrelated HH:MM:SS timestamp since those never start
-        # with a 4-digit number.
-        re.compile(rf"(?<!\d)({DIGIT}{{4}}){_SEP}({DIGIT}{{2}})[:.()]?({DIGIT}{{2}})(?!\d)"),
+        # "2021.0326" (month+day glued together with no internal separator),
+        # "2022.11:02" / "2026:07.08" (a stray punctuation mark, e.g. OCR
+        # misreading "." as ":", either between year/month or month/day) and
+        # "2026.09,05" (comma instead of period). Anchored by an unambiguous
+        # 4-digit year up front, so allowing a loose separator throughout is
+        # low-risk - this can't accidentally swallow an unrelated HH:MM:SS
+        # timestamp since those never start with a 4-digit number.
+        re.compile(rf"(?<!\d)({DIGIT}{{4}})[:.\-/\s,()]+({DIGIT}{{2}})[:.,()]?({DIGIT}{{2}})(?!\d)"),
         ("num", "num", "num"),
         ("year", "month", "day"),
         None,

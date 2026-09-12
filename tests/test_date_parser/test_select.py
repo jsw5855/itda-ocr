@@ -71,6 +71,23 @@ def test_select_no_fallback_reorder_when_only_one_candidate():
     assert best.result == DateResult(2021, 8, 26)
 
 
+def test_select_never_picks_a_self_excluded_box_over_a_neutral_one():
+    # Real case from final_cascade_ocr_boxes.csv (id=879): the anchor
+    # keyword ("EXP.") sits in its own box, far from both date boxes, while
+    # the manufacture-date box (which names itself "PROD") happens to sit
+    # closer to that anchor than the real expiration-date box does (which
+    # carries no keyword of its own) - a pure bbox-distance tie-break picks
+    # the manufacture box. A box that names itself as an exclude-kind date
+    # must never win, regardless of incidental distance.
+    boxes = [
+        _box("EXP.", 0, 0),
+        _box("PROD. DATE:2020.07.15", 100, 100),
+        _box("DATE:2021.05.11", 105, 105),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2021, 5, 11)
+
+
 def test_select_ignores_exclude_keyword_when_no_anchor_present():
     boxes = [
         _box("제조일자", 0, 0),

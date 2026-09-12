@@ -82,11 +82,18 @@ def select_final_date(
                     pc.result = pc.candidates[0].date
 
     if anchor_centers:
-        def rank(pc: PositionedCandidate) -> Tuple[int, float]:
+        def rank(pc: PositionedCandidate) -> Tuple[int, int, float]:
+            # A box whose own text carries an exclude keyword (e.g. "PROD",
+            # 제조일자) names itself as a non-expiration date - that should
+            # outrank pure bbox distance, which can otherwise pick the
+            # manufacture-date box itself when it happens to sit closer to
+            # the (possibly distant) anchor text than the real expiration
+            # date box does.
+            self_excluded = has_keyword(pc.source_text, EXCLUDE_KEYWORDS)
             d_anchor = min_distance(pc.center, anchor_centers)
             d_exclude = min_distance(pc.center, exclude_centers)
             penalty = 0 if d_anchor <= d_exclude else 1
-            return (penalty, d_anchor)
+            return (int(self_excluded), penalty, d_anchor)
 
         positioned.sort(key=rank)
     elif len(positioned) > 1:
