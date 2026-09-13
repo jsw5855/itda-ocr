@@ -146,6 +146,17 @@ _PATTERN_DEFS = [
         None,
     ),
     (
+        # "30,12,2021" style: day,month,year all comma-separated with an
+        # explicit 4-digit year at the end. Same thousands-separator safety
+        # argument as above (the two middle groups are capped at 1-2 digits,
+        # so "1,234,567" or "20,000,000" can never match), plus the trailing
+        # group must be exactly 4 digits, which narrows it further.
+        re.compile(r"(?<![0-9])([0-9]{1,2}),([0-9]{1,2}),([0-9]{4})(?![0-9])"),
+        ("num", "num", "num"),
+        ("year", "month", "day"),
+        None,
+    ),
+    (
         re.compile(rf"(?<!\d)({DIGIT}{{1,4}}){_SEP}({DIGIT}{{1,4}}){_SEP}({DIGIT}{{1,4}})(?!\d)"),
         ("num", "num", "num"),
         ("year", "month", "day"),
