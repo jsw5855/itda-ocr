@@ -1,0 +1,30 @@
+{
+  "target_images": 42,
+  "additional_ocr_calls": 42,
+  "candidate_recoveries": 1,
+  "new_exact_matches": 1,
+  "regressions": 0,
+  "previous_exact_matches": 205,
+  "final_exact_matches": 206,
+  "accuracy_change_pp": 0.33333333333333337,
+  "additional_processing_seconds": 80.32026520004729,
+  "additional_ocr_seconds": 76.04882129986072,
+  "model_init_seconds": 8.727645500039216,
+  "experiment_wall_seconds": 107.87984639999922,
+  "projected_3352_conditional_calls": 469.28000000000003,
+  "projected_3352_additional_seconds": 897.4450965018617,
+  "projected_3352_existing_seconds": 7746.940167138467,
+  "projected_3352_total_seconds_including_init": 8653.112909140367,
+  "projected_3352_unconditional_retry_seconds": 6410.322117870441,
+  "frozen_sha256": "c2f3cee01c4c2d41364b18ea0a1a8e33e41600aa432acdb444a4ae329643fb39",
+  "parser_sha256": {
+    "date_parser\\__init__.py": "6de4f6e384e4c80c8bafed21ac67c2bbd90b8110d787dd02eb451210e53360ec",
+    "date_parser\\crossref.py": "00aef7f56809f6d394227722ca523dac36694b7efc66a848c1520e9578f2d89f",
+    "date_parser\\extract.py": "82baf00f3afccd14a8c0954db9e7f2548d677a1132b4dbbd2ec60862ec21444c",
+    "date_parser\\interpret.py": "426759dbf05ccf4f5787320e36f66b9b704df4a2cc3c261488f123cc376957e3",
+    "date_parser\\keywords.py": "7a7b91dbcbd0d390dc35a5218359f45a00beac1adb3d86823bd3cd5bf53fd9ce",
+    "date_parser\\parser.py": "c6264681357cb06c527bebafb65e1e97fc491cc7217acdd378e9e259b456370d",
+    "date_parser\\select.py": "d89df6ad21ed2104b4e5db0c74142e9f3daac10c2cc6a24fdf469c356e6245a2",
+    "date_parser\\types.py": "f1ccc5b32d660dca849feb4046ba140192d92c813b9a6c399a22792e565905ca"
+  }
+}
