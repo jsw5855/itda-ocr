@@ -1,4 +1,13 @@
-from date_parser.keywords import ANCHOR_KEYWORDS, EXCLUDE_KEYWORDS, has_keyword
+from date_parser.keywords import ANCHOR_KEYWORDS, EXCLUDE_KEYWORDS, PRIMARY_ANCHOR_KEYWORDS, has_keyword
+
+
+def test_sobigihan_and_sayonggihan_are_primary_anchor_keywords():
+    # Official rule 9: 소비기한/사용기한 outrank 유통기한/etc when both are
+    # present - 유통기한 must NOT be in PRIMARY_ANCHOR_KEYWORDS.
+    assert PRIMARY_ANCHOR_KEYWORDS == ["소비기한", "사용기한"]
+    assert has_keyword("소비기한 2026.07.15까지", PRIMARY_ANCHOR_KEYWORDS)
+    assert has_keyword("사용기한 2026.07.15까지", PRIMARY_ANCHOR_KEYWORDS)
+    assert not has_keyword("유통기한 2026.07.15까지", PRIMARY_ANCHOR_KEYWORDS)
 
 
 def test_short_ascii_keyword_matches_as_standalone_token():

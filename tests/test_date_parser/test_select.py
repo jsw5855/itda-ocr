@@ -101,6 +101,34 @@ def test_select_never_picks_a_self_excluded_box_over_a_neutral_one():
     assert best.result == DateResult(2021, 5, 11)
 
 
+def test_select_prefers_sobigihan_over_yutonggihan_when_both_present():
+    # Official rule 9: 소비기한 wins even when its date is spatially farther
+    # than a 유통기한-associated date.
+    boxes = [
+        _box("유통기한", 0, 0),
+        _box("2026.01.01", 0, 1),
+        _box("소비기한", 0, 100),
+        _box("2026.07.01", 0, 110),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2026, 7, 1)
+
+
+def test_select_prefers_later_date_over_coincidental_proximity_to_anchor():
+    # Real-world pattern (confirmed against final_cascade_ocr_boxes.csv
+    # id=245/1747/1780): a wrong, earlier date can sit closer to "소비기한"
+    # by a few pixels than the real, later expiration date does. An
+    # expiration date is virtually always the later one, so that should win
+    # over raw pixel distance among otherwise-tied candidates.
+    boxes = [
+        _box("소비기한", 0, 0),
+        _box("2026.01.01", 0, 1),
+        _box("2026.07.01", 0, 50),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2026, 7, 1)
+
+
 def test_select_ignores_exclude_keyword_when_no_anchor_present():
     boxes = [
         _box("제조일자", 0, 0),

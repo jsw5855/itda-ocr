@@ -7,7 +7,7 @@ from typing import List, Optional, Sequence, Tuple
 from .crossref import apply_manufacture_constraint
 from .extract import extract_date_tokens
 from .interpret import DEFAULT_YEAR_MAX, DEFAULT_YEAR_MIN, ScoredCandidate, generate_candidates
-from .keywords import ANCHOR_KEYWORDS, EXCLUDE_KEYWORDS, bbox_center, has_keyword, min_distance
+from .keywords import ANCHOR_KEYWORDS, EXCLUDE_KEYWORDS, PRIMARY_ANCHOR_KEYWORDS, bbox_center, has_keyword, min_distance
 from .types import DateResult, TextBox
 
 
@@ -84,6 +84,17 @@ def select_final_date(
     positionable_boxes = [b for b in boxes if _has_position(b)]
     anchor_centers = [bbox_center(b.bbox) for b in positionable_boxes if has_keyword(b.text, ANCHOR_KEYWORDS)]
     exclude_centers = [bbox_center(b.bbox) for b in positionable_boxes if has_keyword(b.text, EXCLUDE_KEYWORDS)]
+    # Official rule: 소비기한 outranks other expiration-style keywords
+    # (유통기한/사용기한/EXP/...) when both appear on the same image, not just
+    # "whichever is spatially closer". Empty when 소비기한 doesn't appear
+    # anywhere, which makes the priority tier below a no-op for every
+    # candidate (falls through to the existing distance-based ranking).
+    primary_anchor_centers = [bbox_center(b.bbox) for b in positionable_boxes if has_keyword(b.text, PRIMARY_ANCHOR_KEYWORDS)]
+    secondary_anchor_centers = [
+        bbox_center(b.bbox)
+        for b in positionable_boxes
+        if has_keyword(b.text, ANCHOR_KEYWORDS) and not has_keyword(b.text, PRIMARY_ANCHOR_KEYWORDS)
+    ]
 
     if anchor_centers and exclude_centers:
         reference = _pick_manufacture_reference(positioned, anchor_centers, exclude_centers)
@@ -94,7 +105,7 @@ def select_final_date(
                     pc.result = pc.candidates[0].date
 
     if anchor_centers:
-        def rank(pc: PositionedCandidate) -> Tuple[int, int, float]:
+        def rank(pc: PositionedCandidate) -> Tuple[int, int, int, int, float]:
             # A box whose own text carries an exclude keyword (e.g. "PROD",
             # 제조일자) names itself as a non-expiration date - that should
             # outrank pure bbox distance, which can otherwise pick the
@@ -105,7 +116,28 @@ def select_final_date(
             d_anchor = min_distance(pc.center, anchor_centers)
             d_exclude = min_distance(pc.center, exclude_centers)
             penalty = 0 if d_anchor <= d_exclude else 1
-            return (int(self_excluded), penalty, d_anchor)
+
+            # 소비기한 priority: only meaningful when 소비기한 appears
+            # somewhere AND some other expiration-style keyword also appears
+            # somewhere - otherwise every candidate ties on this tier and it
+            # has no effect.
+            if primary_anchor_centers and secondary_anchor_centers:
+                not_nearest_to_primary = 0 if _is_closer_to(pc.center, primary_anchor_centers, secondary_anchor_centers) else 1
+            else:
+                not_nearest_to_primary = 0
+
+            # Among candidates tied on every keyword-based tier so far, an
+            # expiration date is virtually always the later of the two, so
+            # prefer it over raw pixel distance - a box that merely sits
+            # closer to the keyword text by coincidence (e.g. a manufacture
+            # date on the line right above "소비기한") shouldn't win against
+            # a plausible later date only because it's a few pixels nearer.
+            if pc.result.is_complete():
+                recency = -date(pc.result.year, pc.result.month, pc.result.day).toordinal()
+            else:
+                recency = 0
+
+            return (int(self_excluded), penalty, not_nearest_to_primary, recency, d_anchor)
 
         positioned.sort(key=rank)
     elif len(positioned) > 1:
