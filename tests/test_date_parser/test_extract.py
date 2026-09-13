@@ -127,6 +127,13 @@ def test_finds_date_with_comma_as_second_separator():
     assert _fields(tokens[0]) == (("22", "num"), ("01", "num"), ("06", "num"))
 
 
+def test_finds_day_month_year_all_comma_separated_with_explicit_year():
+    # Real case from labels_300.csv (id=2847): "30,12,2021"
+    tokens = extract_date_tokens("30,12,2021")
+    assert len(tokens) == 1
+    assert _fields(tokens[0]) == (("30", "num"), ("12", "num"), ("2021", "num"))
+
+
 def test_comma_separator_pattern_does_not_misfire_on_thousands_separated_numbers():
     # A price/weight like "1,350" or "20,000" must never be read as a date -
     # those always have a 3-digit group after the comma, which the
