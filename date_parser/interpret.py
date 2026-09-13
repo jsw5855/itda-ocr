@@ -83,6 +83,12 @@ def _assign_role(role: str, field: RawField, year_min: int, year_max: int) -> Op
     return None
 
 
+# Day-of-month upper bound that holds in *every* year, used only when year
+# is unknown (so a full calendar check via datetime.date isn't possible).
+# February gets 29 (not 28) so a leap-year "02/29" isn't wrongly degraded.
+_MAX_DAY_FOR_MONTH = {1: 31, 2: 29, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
+
+
 def _build_candidate(
     fields: Sequence[RawField], perm: Tuple[str, ...], year_min: int, year_max: int
 ) -> Tuple[Optional[DateResult], bool]:
@@ -105,6 +111,12 @@ def _build_candidate(
             date(result.year, result.month, result.day)
         except ValueError:
             return DateResult(year=result.year, month=result.month, day=None), True
+    elif result.month is not None and result.day is not None and result.year is None:
+        # No year to run a full calendar check against (e.g. "04월 31일"),
+        # but April 31st doesn't exist in any year - catch what a
+        # year-independent check still can.
+        if result.day > _MAX_DAY_FOR_MONTH[result.month]:
+            return DateResult(year=None, month=result.month, day=None), True
     return result, False
 
 
