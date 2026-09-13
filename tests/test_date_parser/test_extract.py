@@ -1,4 +1,6 @@
 from date_parser.extract import extract_date_tokens
+from date_parser.interpret import generate_candidates
+from date_parser.types import DateResult
 
 
 def _fields(token):
@@ -180,3 +182,32 @@ def test_confusable_digits_extracted():
 
 def test_no_date_in_plain_text():
     assert extract_date_tokens("제품명: 오리지널 감자칩 120g") == []
+
+
+def test_finds_year_and_month_only_separated_by_comma():
+    # Real case from final_cascade_ocr_boxes.csv (id=515): "2026,01" - the
+    # existing year+month pattern only allowed period/dash/slash/space, not
+    # a comma, so this real OCR text extracted no token at all before.
+    tokens = extract_date_tokens("2026,01")
+    assert len(tokens) == 1
+    assert tokens[0].role_universe == ("year", "month")
+    assert _fields(tokens[0]) == (("2026", "num"), ("01", "num"))
+
+
+def test_finds_month_then_year_with_slash_separator():
+    # Real case from final_cascade_ocr_boxes.csv (id=2062): "EXP | 02/2023"
+    # - the only year+month pattern required the 4-digit year to come
+    # first, so month-first orderings extracted no token at all before.
+    tokens = extract_date_tokens("02/2023")
+    assert len(tokens) == 1
+    assert _fields(tokens[0]) == (("02", "num"), ("2023", "num"))
+    candidates = generate_candidates(tokens[0])
+    assert candidates[0].date == DateResult(2023, 2, None)
+
+
+def test_finds_month_then_year_with_comma_separator():
+    # Real case from final_cascade_ocr_boxes.csv (id=2752): "EXP:01,2022"
+    tokens = extract_date_tokens("01,2022")
+    assert len(tokens) == 1
+    candidates = generate_candidates(tokens[0])
+    assert candidates[0].date == DateResult(2022, 1, None)
