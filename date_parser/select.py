@@ -19,12 +19,23 @@ class PositionedCandidate:
     candidates: List[ScoredCandidate]
 
 
+def _has_position(box: TextBox) -> bool:
+    """A box with no bbox points has no defined center, so it can't take part
+    in any position-based logic here (candidate ranking or keyword-distance).
+    Real OCR output always includes a polygon, but a malformed/degenerate
+    entry should be skipped rather than crash the whole batch on one bad
+    image out of thousands."""
+    return len(box.bbox) > 0
+
+
 def find_all_candidates(
     boxes: Sequence[TextBox], year_min: int = DEFAULT_YEAR_MIN, year_max: int = DEFAULT_YEAR_MAX
 ) -> List[PositionedCandidate]:
     """Every date interpretation found across all OCR boxes, each keeping its position."""
     positioned: List[PositionedCandidate] = []
     for box in boxes:
+        if not _has_position(box):
+            continue
         for token in extract_date_tokens(box.text):
             scored = generate_candidates(token, year_min, year_max)
             if not scored:
@@ -70,8 +81,9 @@ def select_final_date(
     if not positioned:
         return None
 
-    anchor_centers = [bbox_center(b.bbox) for b in boxes if has_keyword(b.text, ANCHOR_KEYWORDS)]
-    exclude_centers = [bbox_center(b.bbox) for b in boxes if has_keyword(b.text, EXCLUDE_KEYWORDS)]
+    positionable_boxes = [b for b in boxes if _has_position(b)]
+    anchor_centers = [bbox_center(b.bbox) for b in positionable_boxes if has_keyword(b.text, ANCHOR_KEYWORDS)]
+    exclude_centers = [bbox_center(b.bbox) for b in positionable_boxes if has_keyword(b.text, EXCLUDE_KEYWORDS)]
 
     if anchor_centers and exclude_centers:
         reference = _pick_manufacture_reference(positioned, anchor_centers, exclude_centers)

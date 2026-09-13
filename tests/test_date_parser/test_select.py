@@ -71,6 +71,19 @@ def test_select_no_fallback_reorder_when_only_one_candidate():
     assert best.result == DateResult(2021, 8, 26)
 
 
+def test_select_does_not_crash_on_box_with_empty_bbox():
+    # A malformed/degenerate OCR entry (no polygon points at all) must be
+    # skipped, not crash the whole batch on one bad image. Real OCR always
+    # returns a polygon, but this defends against a rare upstream glitch.
+    boxes = [
+        TextBox(text="소비기한", confidence=0.9, bbox=[]),
+        TextBox(text="2026.07.15", confidence=0.9, bbox=[]),
+        _box("2026.01.01", 0, 0),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2026, 1, 1)
+
+
 def test_select_never_picks_a_self_excluded_box_over_a_neutral_one():
     # Real case from final_cascade_ocr_boxes.csv (id=879): the anchor
     # keyword ("EXP.") sits in its own box, far from both date boxes, while
