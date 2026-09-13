@@ -187,6 +187,29 @@ _PATTERN_DEFS = [
         ("year", "month"),
         None,
     ),
+    (
+        # Same year+month pair as above, but with a comma as the separator
+        # (e.g. "2026,01") - OCR visually confusing a period/dash for a
+        # comma, same as the dedicated comma patterns for 3-field tokens
+        # above. Kept as its own pattern rather than folding into _SEP so
+        # the already-tested plain pattern is untouched.
+        re.compile(rf"(?<!\d)({DIGIT}{{4}}),({DIGIT}{{1,2}})(?!\d)"),
+        ("num", "num"),
+        ("year", "month"),
+        None,
+    ),
+    (
+        # Month-first, year-last 2-field pattern (e.g. "02/2023", "01,2022")
+        # - the mirror image of the year-first pattern above. Only matches
+        # when the trailing field is a full 4-digit year, so this can't
+        # misfire the way a bare "NN.NN" pair could; interpret.py's existing
+        # order-ambiguity handling (4-digit field always read as year,
+        # regardless of position) resolves the actual role assignment.
+        re.compile(rf"(?<!\d)({DIGIT}{{1,2}})[.\-/\s,]+({DIGIT}{{4}})(?!\d)"),
+        ("num", "num"),
+        ("year", "month"),
+        None,
+    ),
 ]
 
 
