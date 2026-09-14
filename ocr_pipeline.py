@@ -24,7 +24,7 @@ def initialize_engine(
     recognition_batch_size=6,
 ):
     weights = Path(weights_dir) if weights_dir is not None else ROOT / "weights/paddleocr"
-    names = ("PP-OCRv5_mobile_det", "korean_PP-OCRv5_mobile_rec")
+    names = ("PP-OCRv6_medium_det", "korean_PP-OCRv5_mobile_rec")
     for name in names:
         for filename in ("inference.json", "inference.pdiparams", "inference.yml"):
             path = weights / name / filename

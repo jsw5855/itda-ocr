@@ -1,37 +1,12 @@
-# 소비기한 추출 OCR
+﻿# 소비기한 추출 OCR
 
-## 1. 프로젝트 목적
-- 상품 뒷면 이미지에서 소비기한 날짜를 추출하는 OCR 파이프라인
-- 최종 출력: `image_id`, `year`, `month`, `day`, `final_date`
+최종 모델: **PP-OCRv6_medium_det + korean_PP-OCRv5_mobile_rec**.
+CPU 전용이며 strict candidate, cascade, decode-once, recognition batch 6,
+MKLDNN, 2 processes × 2 threads를 유지합니다.
 
-## 2. 대회 실행 환경
-- Python 3.10 · Standard 4-Core vCPU
-- GPU 없음(CPU-only 채점) · 오프라인 추론
-- `predict.ipynb` Run All 방식으로 실행
+## 운영진 재현 순서 (Python 3.10, 저장소 루트)
 
-## 3. 데이터 현황
-- 총 **3,352장**: jpg 3,247장 · jpeg 101장 · png 4장
-- 해상도 다양: 640×640 이미지 1,106장, 고해상도 원본 이미지도 다수 존재
-- 손상 이미지 없음
-
-## 4. 표본 이미지 관찰 결과
-- 소비기한 위치가 일정하지 않고 날짜 표기 형식이 다양함
-- 소비기한, EXP, BEST BEFORE 등 다양한 키워드 존재 가능
-- 바코드, 전화번호, 영양정보 등 날짜와 혼동 가능한 숫자가 많음
-- 회전, 반사, 과노출, 작은 글씨 등 실제 촬영 노이즈 존재
-
-## 5. 현재 고려 중인 기본 아키텍처
-이미지 → OCR → 날짜 후보 추출 → 주변 키워드/위치 기반 소비기한 후보 선택 → 날짜 유효성 검증 → `submission.csv`
-
-## 6. 제출 재현 상태
-
-**현재 clone만으로 실행할 수 있는 완성된 제출 상태는 아니다.** `weights/`는 Git 제외 대상이고, `download_weights.sh`는 비어 있으며, 검증된 weight 배포 URL이 아직 연결되지 않았다. 아래 weight 준비 단계를 완성한 뒤 오프라인 실행해야 한다. 최신 실행 모듈과 notebook 변경도 최종 제출 저장소에 포함해야 한다.
-
-현재 Windows Python 3.10.11에서 실제 OCR 및 nbconvert 실행을 검증했다. 같은 100장에 대해 4개 논리 CPU로 제한한 직접 실행은 56.9초, nbconvert 전체는 64.6초였고 모든 worker가 종료했다. 이는 공식 Linux Standard 4-Core vCPU에서 전체 입력을 2400초 내 완료했다는 검증은 아니다. 상세 근거는 [실행 감사](docs/runtime_audit/REPORT.md), 제출 준비 상태는 [인프라 감사](docs/submission_infrastructure_audit.md)를 참고한다.
-
-## 7. 운영진 재현 절차 (Linux, 저장소 루트)
-
-### 1) Clone 및 Python 3.10 환경 준비 — 인터넷 연결 상태
+### 1. 인터넷 연결 상태에서 설치
 
 ```bash
 git clone https://github.com/jsw5855/itda-ocr.git
@@ -41,84 +16,78 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m pip check
 python -m ipykernel install --sys-prefix --name python3 --display-name "Python 3"
-python -c "import cv2, numpy, PIL; print(cv2.__version__, numpy.__version__, PIL.__version__)"
-```
-
-직접 고정한 버전은 PaddleOCR 3.7.0, PaddlePaddle 3.2.2, PaddleX 3.7.2, NumPy 2.2.6, Pillow 12.3.0, opencv-contrib-python 4.10.0.84다. `nbconvert`와 `ipykernel`도 requirements에 포함되지만 현재 버전 고정은 되어 있지 않다. 검증 환경에서는 각각 7.17.1, 7.3.0이었다. 전이 의존성 전체를 고정한 lock 파일은 없으므로 새 Linux 환경 설치 검증이 필요하다.
-
-PaddleX ocr-core가 요구하는 OpenCV 배포판 하나만 설치한다. headless를 추가 설치해 cv2 배포판을 중복시키지 않는다. Linux의 GUI 포함 OpenCV wheel이 요구하는 시스템 공유 라이브러리는 pip만으로 충족되지 않을 수 있으므로 위 import 검증을 통과해야 한다. 개발/검증 도구는 별도의 `requirements-dev.txt`이며 운영진 실행에는 필요하지 않다.
-
-### 2) Weight 준비 — 인터넷을 차단하기 전
-
-**BLOCKER: 현재 `download_weights.sh`는 0바이트이며 아무 weight도 준비하지 않는다.** 공개적으로 접근 가능한 고정 버전 URL, checksum 검증, 아래 경로로의 배치를 구현해야 한다. 현재는 다음 명령만 실행해도 준비가 완료된다고 볼 수 없다.
-
-```bash
+python -c "import cv2, numpy, PIL, paddle; print(cv2.__version__, numpy.__version__, PIL.__version__, paddle.__version__)"
 bash download_weights.sh
+python scripts/download_weights.py --verify-only
 ```
 
-준비 완료 시 저장소 루트에 다음 구조가 있어야 한다. 두 모델의 `inference.json`, `inference.pdiparams`, `inference.yml` 6개는 런타임이 필수로 확인한다. 검증한 원본 번들의 config.json, README.md와 manifest도 함께 전달한다.
+Windows에서는 Python 3.10의 `python -m venv .venv` 및
+`.venv\Scripts\Activate.ps1`로 환경을 준비합니다. bash는 Git Bash를 사용합니다.
+Git Bash에서 활성 venv Python을 찾지 못하면 `PYTHON` 환경변수로 해당 실행 파일을 지정합니다.
+이후 명령은 같은 venv에서 실행합니다.
+
+`download_weights.sh`는 표준 라이브러리만 사용하는 `scripts/download_weights.py`를 호출합니다.
+PaddleX 3.7.2 공식 BOS 배포 URL에서 두 모델을 받고, archive SHA256 및 파일별 크기/SHA256을
+`scripts/weights_manifest.json`과 비교한 다음 임시 디렉터리에서 최종 경로로 옮깁니다.
+checksum은 공식 서버에서 받은 파일을 고정한 값이며 배포자 서명은 아닙니다.
+기존 모델은 검증 후 그대로 사용하고, 불완전하거나 변조되었으면 덮어쓰지 않고 실패합니다.
+기존 v5 detector와 기타 weight 파일은 수정하지 않습니다.
 
 ```text
 weights/paddleocr/
-  SHA256_MANIFEST.json
-  PP-OCRv5_mobile_det/
+  PP-OCRv6_medium_det/
     inference.json
     inference.pdiparams
     inference.yml
-    config.json
-    README.md
   korean_PP-OCRv5_mobile_rec/
     inference.json
     inference.pdiparams
     inference.yml
-    config.json
-    README.md
 ```
 
-저장소 루트에서 준비된 번들의 크기와 SHA256을 확인한다.
+PaddleX가 요구하는 OpenCV 배포 하나만 설치합니다. Linux에서 `import cv2`가 시스템 공유
+라이브러리 오류로 실패하면 해당 실행 이미지에 필요한 라이브러리를 먼저 준비해야 합니다.
+Python 의존성은 `pip check`와 위 import 명령으로 확인합니다.
+
+### 2. 인터넷 연결 해제 후 Run All
+
+운영진 입력 이미지를 저장소 루트의 `val_images/`에 배치합니다.
+기본 입출력은 상대경로 `./val_images`, `./submission.csv`이므로 아래를 그대로 실행합니다.
 
 ```bash
-python - <<'PY'
-import hashlib
-import json
-from pathlib import Path
-manifest = json.loads(Path("weights/paddleocr/SHA256_MANIFEST.json").read_text())
-for name, expected in manifest.items():
-    content = Path(name).read_bytes()
-    if len(content) != expected["bytes"] or hashlib.sha256(content).hexdigest() != expected["sha256"]:
-        raise SystemExit(f"Weight checksum mismatch: {name}")
-print(f"Verified {len(manifest)} model files")
-PY
+python -m jupyter nbconvert --to notebook --execute predict.ipynb --ExecutePreprocessor.timeout=2400 --output executed.ipynb
 ```
 
-manifest 자체의 신뢰성은 공개할 배포물의 고정 checksum으로 별도 보장해야 한다.
+다른 경로는 실행 전에 `ITDA_INPUT_DIR`, `ITDA_OUTPUT_PATH` 환경변수로 지정할 수 있습니다.
+notebook CONFIG 셀은 이 환경변수를 읽습니다. 설치·weight 다운로드를 수행하는 셀은 없습니다.
+필수 로컬 모델 파일이 없으면 OCR 초기화 전에 오류로 종료합니다.
+코드에서 `PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True`를 설정하고 보조 모델을 비활성화합니다.
+이 설정 자체가 방화벽은 아니므로 운영진의 네트워크 차단 후 실행합니다.
 
-### 3) 인터넷 차단 후 환경변수 주입 및 Run All
-
-위 준비를 마친 환경에서 운영진이 네트워크를 차단한 다음 실행한다. 설치 및 weight 준비는 notebook 실행 전에 완료하며 notebook은 이를 호출하지 않는다.
-
-```bash
-export ITDA_INPUT_DIR=./val_images
-export ITDA_OUTPUT_PATH=./submission.csv
-jupyter nbconvert --to notebook --execute predict.ipynb \
-    --ExecutePreprocessor.timeout=2400 \
-    --output /tmp/executed.ipynb
-```
-
-첫 CONFIG 셀은 위 두 환경변수를 그대로 읽는다. 별도의 사용자 입력은 없다. 기본 제출 경로는 `predict.ipynb → ocr_pipeline.run_submission → submission_runtime`이며 두 독립 worker가 로컬 PaddleOCR를 CPU에서 실행한다. 기본 2-process × 2-thread 설정을 사용하며, 개발용 `ITDA_OCR_PROCESSES` override는 공식 실행에 필요하지 않다.
-
-입력 디렉터리 바로 아래의 jpg/jpeg/png 파일을 처리하고 파일명 확장자를 뺀 stem을 `image_id`로 사용한다. 입력이 없거나 stem이 중복되면 오류로 종료한다. 출력은 입력 파일 수와 같은 행 수의 UTF-8 BOM CSV이며 컬럼 순서는 다음과 같다.
+입력 폴더 바로 아래 jpg/jpeg/png를 처리하며 확장자를 뺀 파일명(앞자리 0 포함)이
+`image_id`입니다. 빈 입력 또는 중복 stem은 오류입니다. 출력은 UTF-8 BOM CSV이며
+입력 이미지당 한 행, 다음 컬럼 순서입니다.
 
 ```text
 image_id,year,month,day,final_date
 ```
 
-OCR 모델 경로를 명시하고 보조 방향/문서 모델을 비활성화했다. 필수 모델 파일이 없으면 다운로드로 대체하지 않고 오류를 낸다. `PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True`는 접속 확인을 건너뛰는 설정이며 모든 HTTP 요청을 차단하는 방화벽은 아니다. 코드 감사에서는 정상 경로의 다운로드 호출이 발견되지 않았고, 실제 네트워크 차단 재현 검증은 별도다. PaddleX 캐시용 `weights/paddlex/`와 출력 디렉터리에 쓰기 권한이 필요할 수 있다.
+```bash
+python scripts/validate_submission.py submission.csv --image-dir val_images
+```
 
-worker의 180초 무응답 또는 worker 구간 2300초 초과는 실패 처리한다. 이는 부분 예측을 만들어 성공으로 처리하는 기능이 아니며 공식 전체 wall-clock 2400초 성공을 보장하지 않는다.
+worker 오류·시간 초과는 실패 처리하며 부분 결과 CSV를 성공으로 저장하지 않습니다.
+worker 무응답 제한은 180초, worker 처리 구간 제한은 2300초입니다.
+전체 2400초 제한 충족 여부는 실행 하드웨어와 입력으로 검증해야 합니다.
 
-## 8. 제출 파일 구분
+## 제출 파일과 검증
 
-최종 저장소에 `predict.ipynb`, `ocr_pipeline.py`, **`submission_runtime.py`**, `date_parser/` 전체, `requirements.txt`, 완성된 `download_weights.sh`, `README.md`가 필요하다. 모델은 별도 사전 배포 경로로 준비한다. 운영진 Run All은 `data/`, `labels/`, 개발 notebook이나 benchmark 결과를 참조하지 않는다.
+필수 파일: `predict.ipynb`, `ocr_pipeline.py`, `submission_runtime.py`, `date_parser/`,
+`requirements.txt`, `download_weights.sh`, `scripts/download_weights.py`,
+`scripts/weights_manifest.json`, `README.md`. `weights/`는 Git에서 제외되며 위 단계로 생성합니다.
+제출 추론은 `data/`, `labels/`, 개발 notebook, 실험 스크립트에 의존하지 않습니다.
+개발 테스트는 `python -m pip install -r requirements-dev.txt` 후 `python -m pytest -q`입니다.
 
-`tmp_*`, 로컬 submission CSV, 실행 완료 notebook, benchmark 입력 복사본·결과·로그, `.venv/`는 제출 실행에 불필요하다. 현재 `.gitignore`는 data/labels/weights와 가상환경 등을 제외하지만 tmp/출력 일부는 제외하지 않으므로 일괄 추가 전에 구분해야 한다. 자세한 Git 상태 분류는 [인프라 감사](docs/submission_infrastructure_audit.md)에 기록했다.
+기존 300장 validation 최종 후보는 244/300 (81.33%), v5 기준은 230/300 (76.67%)입니다.
+비공개 test 500장의 정확도와 실행시간은 공개 validation 결과로 보장할 수 없습니다.
+최종 fresh clone 및 오프라인 검증 결과·환경·한계는 `docs/submission_final_report.md`에 기록합니다.
