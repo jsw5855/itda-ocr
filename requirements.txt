@@ -7,6 +7,6 @@ pillow==12.3.0
 # PaddleX ocr-core requires this distribution; install only one cv2 provider.
 opencv-contrib-python==4.10.0.84
 # Notebook execution tools; nbformat and nbclient arrive through nbconvert.
-ipykernel
-nbconvert
+ipykernel==7.3.0
+nbconvert==7.17.1
 # pandas arrives through PaddleX; pytest belongs in requirements-dev.txt.
