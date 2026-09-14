@@ -17,6 +17,33 @@ def test_parses_text_box_input():
     assert result["final_date"] == "2026-01-15"
 
 
+def test_partial_none_when_year_unreadable():
+    # Official rule 4: only month/day recognized -> "NONE-08-25".
+    ocr_results = [{"text": "08월 25일", "confidence": 0.9, "bbox": [[0, 0], [40, 0], [40, 5], [0, 5]]}]
+    result = parse_expiration_date(ocr_results)
+    assert result == {"year": "NONE", "month": "08", "day": "25", "final_date": "NONE-08-25"}
+
+
+def test_month_and_day_are_always_two_digits_even_from_single_digit_input():
+    # Official rule 3: month/day must be zero-padded to two digits, even when
+    # the source text itself only has a single digit (e.g. "1월", "5일").
+    ocr_results = [{"text": "2026년 1월 5일", "confidence": 0.9, "bbox": [[0, 0], [40, 0], [40, 5], [0, 5]]}]
+    result = parse_expiration_date(ocr_results)
+    assert result == {"year": "2026", "month": "01", "day": "05", "final_date": "2026-01-05"}
+
+
+def test_picks_yutonggihan_when_sobigihan_absent():
+    # Official rule 8: no 소비기한 present, but 유통기한 is -> pick the date
+    # nearest 유통기한. (유통기한 was previously untested anywhere in this
+    # suite - only 소비기한/EXP/BB had coverage.)
+    ocr_results = [
+        {"text": "유통기한", "confidence": 0.9, "bbox": [[0, 0], [40, 0], [40, 5], [0, 5]]},
+        {"text": "2026.07.01", "confidence": 0.9, "bbox": [[0, 10], [40, 10], [40, 15], [0, 15]]},
+    ]
+    result = parse_expiration_date(ocr_results)
+    assert result["final_date"] == "2026-07-01"
+
+
 def test_partial_none_when_day_unreadable():
     ocr_results = [{"text": "2026년 01월 소비기한", "confidence": 0.9, "bbox": [[0, 0], [40, 0], [40, 5], [0, 5]]}]
     result = parse_expiration_date(ocr_results)
@@ -30,9 +57,13 @@ def test_partial_none_when_day_is_calendar_invalid():
 
 
 def test_all_none_when_no_date_found():
+    # Contest output format: individual year/month/day fields stay "NONE" each,
+    # but final_date collapses to the single string "NONE" only when every
+    # field is unknown - a partial result (e.g. "2026-01-NONE") must NOT
+    # collapse, since that still carries real year/month information.
     ocr_results = [{"text": "영양성분표", "confidence": 0.9, "bbox": [[0, 0], [10, 0], [10, 5], [0, 5]]}]
     result = parse_expiration_date(ocr_results)
-    assert result == {"year": "NONE", "month": "NONE", "day": "NONE", "final_date": "NONE-NONE-NONE"}
+    assert result == {"year": "NONE", "month": "NONE", "day": "NONE", "final_date": "NONE"}
 
 
 def test_manufacture_date_resolves_ymd_dmy_ambiguity_end_to_end():

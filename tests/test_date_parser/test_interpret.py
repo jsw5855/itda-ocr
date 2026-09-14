@@ -92,6 +92,23 @@ def test_calendar_invalid_day_degrades_to_partial_none_fixed_roles():
     assert candidates[0].date == DateResult(2026, 2, None)
 
 
+def test_month_day_only_rejects_a_day_that_no_year_could_ever_have():
+    # No year is present to run a full calendar check against, but April
+    # 31st doesn't exist in ANY year - a year-independent bound should still
+    # catch this and degrade to month-only, not silently accept day=31.
+    token = _token([("04", "num"), ("31", "num")], ("month", "day"), fixed_roles=("month", "day"))
+    candidates = generate_candidates(token)
+    assert candidates[0].date == DateResult(None, 4, None)
+
+
+def test_month_day_only_keeps_february_29_since_leap_years_exist():
+    # Unlike April 31, Feb 29 is valid in *some* years, so it must not be
+    # rejected just because the specific year is unknown here.
+    token = _token([("02", "num"), ("29", "num")], ("month", "day"), fixed_roles=("month", "day"))
+    candidates = generate_candidates(token)
+    assert candidates[0].date == DateResult(None, 2, 29)
+
+
 def test_strict_candidates_always_preferred_over_degraded():
     # Both readings validate fully as real calendar dates, so neither should
     # ever be degraded/dropped in favor of the other.

@@ -71,6 +71,64 @@ def test_select_no_fallback_reorder_when_only_one_candidate():
     assert best.result == DateResult(2021, 8, 26)
 
 
+def test_select_does_not_crash_on_box_with_empty_bbox():
+    # A malformed/degenerate OCR entry (no polygon points at all) must be
+    # skipped, not crash the whole batch on one bad image. Real OCR always
+    # returns a polygon, but this defends against a rare upstream glitch.
+    boxes = [
+        TextBox(text="소비기한", confidence=0.9, bbox=[]),
+        TextBox(text="2026.07.15", confidence=0.9, bbox=[]),
+        _box("2026.01.01", 0, 0),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2026, 1, 1)
+
+
+def test_select_never_picks_a_self_excluded_box_over_a_neutral_one():
+    # Real case from final_cascade_ocr_boxes.csv (id=879): the anchor
+    # keyword ("EXP.") sits in its own box, far from both date boxes, while
+    # the manufacture-date box (which names itself "PROD") happens to sit
+    # closer to that anchor than the real expiration-date box does (which
+    # carries no keyword of its own) - a pure bbox-distance tie-break picks
+    # the manufacture box. A box that names itself as an exclude-kind date
+    # must never win, regardless of incidental distance.
+    boxes = [
+        _box("EXP.", 0, 0),
+        _box("PROD. DATE:2020.07.15", 100, 100),
+        _box("DATE:2021.05.11", 105, 105),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2021, 5, 11)
+
+
+def test_select_prefers_sobigihan_over_yutonggihan_when_both_present():
+    # Official rule 9: 소비기한 wins even when its date is spatially farther
+    # than a 유통기한-associated date.
+    boxes = [
+        _box("유통기한", 0, 0),
+        _box("2026.01.01", 0, 1),
+        _box("소비기한", 0, 100),
+        _box("2026.07.01", 0, 110),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2026, 7, 1)
+
+
+def test_select_prefers_later_date_over_coincidental_proximity_to_anchor():
+    # Real-world pattern (confirmed against final_cascade_ocr_boxes.csv
+    # id=245/1747/1780): a wrong, earlier date can sit closer to "소비기한"
+    # by a few pixels than the real, later expiration date does. An
+    # expiration date is virtually always the later one, so that should win
+    # over raw pixel distance among otherwise-tied candidates.
+    boxes = [
+        _box("소비기한", 0, 0),
+        _box("2026.01.01", 0, 1),
+        _box("2026.07.01", 0, 50),
+    ]
+    best = select_final_date(boxes)
+    assert best.result == DateResult(2026, 7, 1)
+
+
 def test_select_ignores_exclude_keyword_when_no_anchor_present():
     boxes = [
         _box("제조일자", 0, 0),

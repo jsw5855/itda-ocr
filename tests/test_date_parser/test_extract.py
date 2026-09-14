@@ -1,4 +1,6 @@
 from date_parser.extract import extract_date_tokens
+from date_parser.interpret import generate_candidates
+from date_parser.types import DateResult
 
 
 def _fields(token):
@@ -112,6 +114,61 @@ def test_finds_year_month_day_with_stray_punctuation_between_month_and_day():
     assert _fields(tokens[0]) == (("2022", "num"), ("11", "num"), ("02", "num"))
 
 
+def test_finds_date_with_comma_instead_of_period_separator():
+    # Real cases from labels_300.csv (id=268, 287, 327, 1231): OCR sometimes
+    # misreads a period as a comma, e.g. "26,07.14" or "27,02,18".
+    assert _fields(extract_date_tokens("26,07.14")[0]) == (("26", "num"), ("07", "num"), ("14", "num"))
+    assert _fields(extract_date_tokens("27,02,18")[0]) == (("27", "num"), ("02", "num"), ("18", "num"))
+    assert _fields(extract_date_tokens("21,05.05 15:43")[0]) == (("21", "num"), ("05", "num"), ("05", "num"))
+
+
+def test_finds_date_with_comma_as_second_separator():
+    # Real case from labels_300.csv (id=2284): "22.01,06"
+    tokens = extract_date_tokens("22.01,06")
+    assert len(tokens) == 1
+    assert _fields(tokens[0]) == (("22", "num"), ("01", "num"), ("06", "num"))
+
+
+def test_finds_day_month_year_all_comma_separated_with_explicit_year():
+    # Real case from labels_300.csv (id=2847): "30,12,2021"
+    tokens = extract_date_tokens("30,12,2021")
+    assert len(tokens) == 1
+    assert _fields(tokens[0]) == (("30", "num"), ("12", "num"), ("2021", "num"))
+
+
+def test_comma_separator_pattern_does_not_misfire_on_thousands_separated_numbers():
+    # A price/weight like "1,350" or "20,000" must never be read as a date -
+    # those always have a 3-digit group after the comma, which the
+    # comma-tolerant pattern can't match (it's capped at 1-2 digits/group).
+    assert extract_date_tokens("1,350kcal") == []
+    assert extract_date_tokens("20,000mg") == []
+
+
+def test_year_anchored_pattern_does_not_hijack_a_trailing_unrelated_number():
+    # Real case from final_cascade_ocr_boxes.csv (id=690): "2025.10.11.22시"
+    # is a complete date (2025-10-11) followed by an unrelated hour ("22시").
+    # The comma/period-tolerant patterns must not skip the leading 4-digit
+    # year and instead misread the trailing "10.11.22" as its own date.
+    tokens = extract_date_tokens("2025.10.11.22시까지")
+    assert len(tokens) == 1
+    assert _fields(tokens[0]) == (("2025", "num"), ("10", "num"), ("11", "num"))
+
+
+def test_finds_year_month_day_with_colon_between_year_and_month():
+    # Real case from final_cascade_ocr_boxes.csv (id=384): "2026:07.08"
+    # (OCR misread the year/month separator as a colon).
+    tokens = extract_date_tokens("2026:07.08까지")
+    assert len(tokens) == 1
+    assert _fields(tokens[0]) == (("2026", "num"), ("07", "num"), ("08", "num"))
+
+
+def test_finds_year_month_day_with_comma_between_month_and_day():
+    # Real case from final_cascade_ocr_boxes.csv (id=366): "2026.09,05"
+    tokens = extract_date_tokens("2026.09,05L2")
+    assert len(tokens) == 1
+    assert _fields(tokens[0]) == (("2026", "num"), ("09", "num"), ("05", "num"))
+
+
 def test_finds_multiple_non_overlapping_dates():
     tokens = extract_date_tokens("제조일자 2026.01.01 소비기한 2026.07.01")
     assert len(tokens) == 2
@@ -125,3 +182,32 @@ def test_confusable_digits_extracted():
 
 def test_no_date_in_plain_text():
     assert extract_date_tokens("제품명: 오리지널 감자칩 120g") == []
+
+
+def test_finds_year_and_month_only_separated_by_comma():
+    # Real case from final_cascade_ocr_boxes.csv (id=515): "2026,01" - the
+    # existing year+month pattern only allowed period/dash/slash/space, not
+    # a comma, so this real OCR text extracted no token at all before.
+    tokens = extract_date_tokens("2026,01")
+    assert len(tokens) == 1
+    assert tokens[0].role_universe == ("year", "month")
+    assert _fields(tokens[0]) == (("2026", "num"), ("01", "num"))
+
+
+def test_finds_month_then_year_with_slash_separator():
+    # Real case from final_cascade_ocr_boxes.csv (id=2062): "EXP | 02/2023"
+    # - the only year+month pattern required the 4-digit year to come
+    # first, so month-first orderings extracted no token at all before.
+    tokens = extract_date_tokens("02/2023")
+    assert len(tokens) == 1
+    assert _fields(tokens[0]) == (("02", "num"), ("2023", "num"))
+    candidates = generate_candidates(tokens[0])
+    assert candidates[0].date == DateResult(2023, 2, None)
+
+
+def test_finds_month_then_year_with_comma_separator():
+    # Real case from final_cascade_ocr_boxes.csv (id=2752): "EXP:01,2022"
+    tokens = extract_date_tokens("01,2022")
+    assert len(tokens) == 1
+    candidates = generate_candidates(tokens[0])
+    assert candidates[0].date == DateResult(2022, 1, None)

@@ -8,6 +8,13 @@ from .types import Bbox
 # Marks a date as the expiration date being sought.
 ANCHOR_KEYWORDS = ["소비기한", "유통기한", "사용기한", "까지", "EXP", "EXD", "BBD", "BB", "BEST BEFORE", "BEST BY"]
 
+# Official rule: if 소비기한/사용기한 is present, it wins even when 유통기한/etc
+# is also present on the same image (그건 소비기한이 없을 때의 fallback이지
+# 동급이 아님). Kept separate from ANCHOR_KEYWORDS - which still means "any
+# expiration-style keyword" for the general anchor-vs-exclude distance logic
+# - because that broader check is unaffected by this priority.
+PRIMARY_ANCHOR_KEYWORDS = ["소비기한", "사용기한"]
+
 # Marks a date as a different kind of date (manufacture/packaging), not the
 # expiration date, so it should lose to an anchor-flagged candidate nearby.
 EXCLUDE_KEYWORDS = ["제조일자", "제조년월일", "제조일", "포장일자", "포장일", "제조", "PRO", "PROD", "PRD", "MFD", "PACK", "MFG"]
