@@ -55,7 +55,7 @@ def _stop_workers(workers, graceful, grace_seconds):
 
 
 def run_workers(jobs, initializer, function, *, processes=2, threads=2,
-                progress=None, task_timeout=180, total_timeout=2300,
+                progress=None, task_timeout=180, total_timeout=7200,
                 shutdown_timeout=10):
     """Return all results or fail with worker/job identity, always reaping workers.
 
