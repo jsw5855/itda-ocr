@@ -9,8 +9,8 @@ MKLDNN, 2 processes × 2 threads를 유지합니다.
 ### 1. 인터넷 연결 상태에서 설치
 
 ```bash
-git clone https://github.com/jsw5855/itda-ocr.git
-cd itda-ocr
+git clone https://github.com/jsw5855/itda3-DScover-LetsOCR.git
+cd itda3-DScover-LetsOCR
 python3.10 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
