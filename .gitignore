@@ -45,3 +45,7 @@ coverage.xml
 
 /labels/
 /Microsoft/Windows/PowerShell/ModuleAnalysisCache
+
+/notebooks/
+/docs/experiments/final_highres_1280/
+/outputs/
