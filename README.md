@@ -77,7 +77,7 @@ python scripts/validate_submission.py submission.csv --image-dir val_images
 ```
 
 worker 오류·시간 초과는 실패 처리하며 부분 결과 CSV를 성공으로 저장하지 않습니다.
-worker 무응답 제한은 180초, worker 처리 구간 제한은 2300초입니다.
+개별 작업의 worker 무응답 제한은 180초이며, 내부 전체 worker timeout은 7200초입니다.
 전체 2400초 제한 충족 여부는 실행 하드웨어와 입력으로 검증해야 합니다.
 
 ## 제출 파일과 검증
